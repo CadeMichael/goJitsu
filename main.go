@@ -12,8 +12,8 @@ import (
 // main function  
 func main() {
 	createList()
-        visitAll()
-        indiv("https://www.bjjheroes.com/?p=7556")
+	visitAll()
+	indiv("https://www.bjjheroes.com/?p=7556")
 }
 
 // visitAll function  
@@ -29,23 +29,26 @@ func visitAll() {
 			"https://bjjheroes.com",
 		),
 	)
+	// if a link is found in a table
 	c.OnHTML("td.column-1 a[href]", func(e *colly.HTMLElement) {
-                url := e.Request.AbsoluteURL(e.Attr("href"))
-                indiv(url)
-
+		url := e.Request.AbsoluteURL(e.Attr("href")) // get the link as an absolute
+		indiv(url)                                   // run indiv on the absolute link
 	})
+	// start scraping
 	c.Visit("https://www.bjjheroes.com/a-z-bjj-fighters-list")
 }
 
 // createList function  
 func createList() {
-	file, err := os.OpenFile("list.csv", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644) // instantiate csv
-	if err != nil {
+	// instantiate csv
+	file, err := os.OpenFile("list.csv", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil { // deal with errors
 		log.Fatalf("cannot create file due to %s", err)
 		return
 	}
 	defer file.Close()
 	writer := csv.NewWriter(file) // create a writer to modify csv
+	// write column names to csv
 	writer.Write([]string{
 		"Name",
 		"wins",
@@ -65,19 +68,20 @@ func createList() {
 		"Losses EBI / OT",
 		"Losses DQ",
 	})
-	writer.Flush()
+	writer.Flush() // ensure data is written
 }
 
-// work function  
+// indiv function  
 func indiv(url string) {
-	file, err := os.OpenFile("list.csv", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644) // instantiate csv
+	// instantiate or open csv
+	file, err := os.OpenFile("list.csv", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		log.Fatalf("cannot create file due to %s", err)
 		return
 	}
 	defer file.Close()
 	writer := csv.NewWriter(file) // create a writer to modify csv
-	defer writer.Flush()
+	defer writer.Flush()          // defer pushes to end of function
 	/* instatiate colly */
 	c := colly.NewCollector(
 		colly.AllowedDomains(
@@ -89,6 +93,8 @@ func indiv(url string) {
 			"https://bjjheroes.com",
 		),
 	)
+	// create empty column variables
+	// using standard vs short declaration as short is a bit messy in this case
 	fName := "0"
 	wins := "0"
 	lose := "0"
@@ -106,13 +112,16 @@ func indiv(url string) {
 	lPen := "0"
 	lEBI := "0"
 	lDQ := "0"
-	/* <h1 itemprop="name">Aaron Johnson</h1> */
+
+	// find name
 	c.OnHTML("h1", func(a *colly.HTMLElement) {
 		fName = a.Text
 	})
+	// find wins
 	c.OnHTML("div.Win_title", func(b *colly.HTMLElement) {
 		wins = b.ChildText("em")
 	})
+	// find win types
 	c.OnHTML("div.wrapper_canvas li", func(d *colly.HTMLElement) {
 		switch d.ChildText("span.by_points") {
 		case "BY POINTS":
@@ -131,6 +140,11 @@ func indiv(url string) {
 			wDQ = d.ChildText("span.per_no")
 		}
 	})
+	// find losses
+	c.OnHTML("div.Win_title_lose", func(t *colly.HTMLElement) {
+		lose = t.ChildText("em")
+	})
+	// find loss types
 	c.OnHTML("div.wrapper_canvas_lose li", func(d *colly.HTMLElement) {
 		switch d.ChildText("span.by_points") {
 		case "BY POINTS":
@@ -149,12 +163,11 @@ func indiv(url string) {
 			lDQ = d.ChildText("span.per_no_lose")
 		}
 	})
-	c.OnHTML("div.Win_title_lose", func(t *colly.HTMLElement) {
-		lose = t.ChildText("em")
-	})
 
+	// start the scraper
 	c.Visit(url)
 
+	// write to csv
 	if wins != "0" || lose != "0" {
 		writer.Write([]string{
 			fName,
@@ -176,5 +189,6 @@ func indiv(url string) {
 			lDQ,
 		})
 	}
+	// for every individual fighter print done
 	fmt.Printf("!!!Done!!!")
 }
