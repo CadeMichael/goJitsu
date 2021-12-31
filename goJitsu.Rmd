@@ -21,7 +21,7 @@ turned to **BJJHeroes** to do so.
   * number of losses
   * number per type of win
   * number per type of loss
-* this data is relatively unintersting as it is fairly simple and doesn't 
+* this data is relatively uninteresting as it is fairly simple and doesn't 
 allow for much prediction, ie predicting if one fighter would beat another. 
 * But scraping the data was a foreign task and I will try to get more detailed
 data in the near future to update and or re write this report. 
