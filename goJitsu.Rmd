@@ -43,9 +43,10 @@ and want to become more familiar with.
 * The only real observations I can make with the data I collected is to see the distribution
 of different win & loss types. I can compare the frequencies of each, I can determine what 
 a median and or average competitor (who is well known enough for BJJ heroes) looks like 
-in terms of wins and losses
+in terms of wins and losses.
 * I will rely mainly on histograms as they are utilized to measure frequency which is what I can 
 analyze.
+* I will use basic linear models to see if certain win type frequencies can predict more wins overall.
 
 ## Load Required packages
 
@@ -78,9 +79,15 @@ winLoss_df <- as.data.frame(goData)
 # add number of matches won not by submission 
 winLoss_df <- winLoss_df %>%
   mutate(nonSubWins = wins - Win.Submissions)
-# separate losses and wins 
-loss_df <- winLoss_df[11:length(winLoss_df)-1]
-wins_df <- winLoss_df[4:10]
+
+# separate  wins 
+wins_df <- winLoss_df %>% select(-c(colnames(winLoss_df[11:17]),"nonSubWins"))
+# calculate submission percentage for wins 
+wins_df <- wins_df %>%
+  mutate(subRate = Win.Submissions / wins) %>% # change between total and wins
+  mutate(winRate = wins / total) %>% 
+  mutate(pWinRate = Win.Points / wins)
+wins_df[is.na(wins_df)] <- 0
 ```
 
 ## Initial Plots on match data, Histograms
@@ -113,16 +120,25 @@ sum(winLoss_df$Losses.Points)
 ```
 
 ## Box Plots For wins
+
 ```{r}
 # sub wins vs points wins 
 winBar <- winLoss_df %>%
   ggplot() + 
-    geom_histogram(aes(x = Win.Points,fill= "blue"), color = "black", alpha = 0.75) +
-    geom_vline(aes(xintercept = mean(Win.Points)), color = "dark blue", linetype = "dashed") + 
-    geom_histogram(aes(x = Win.Submissions, fill= "green"), color = "black", alpha = 0.5) + 
-    geom_vline(aes(xintercept = mean(Win.Submissions)), color = "dark green", linetype = "dashed") +
-    labs(x = ("Number of Wins"), y = ("Frequency"), title = "Submissions vs Point Wins") +
-    scale_fill_identity(name = "fill color", guide = "legend", labels = c("Pts", "Subs")) +
+    geom_histogram(aes(x = Win.Points,fill= "blue"),
+                   color = "black", alpha = 0.75) +
+    geom_vline(aes(xintercept = mean(Win.Points)),
+               color = "dark blue", linetype = "dashed") + 
+    geom_histogram(aes(x = Win.Submissions, fill= "green"),
+                   color = "black", alpha = 0.5) + 
+    geom_vline(aes(xintercept = mean(Win.Submissions)),
+               color = "dark green", linetype = "dashed") +
+    labs(x = ("Number of Wins"),
+         y = ("Frequency"),
+         title = "Submissions vs Point Wins") +
+    scale_fill_identity(name = "fill color",
+                        guide = "legend",
+                        labels = c("Pts", "Subs")) +
     theme_classic()
 # plot 
 winBar
@@ -130,12 +146,20 @@ winBar
 # sub wins vs all other types of wins 
 subVsNon <- winLoss_df %>%
   ggplot() + 
-    geom_histogram(aes(x = nonSubWins, fill= "purple"), color = "black", alpha = 1) +
-    geom_vline(aes(xintercept = mean(nonSubWins)), color = "purple", linetype = "dashed") + 
-    geom_histogram(aes(x = Win.Submissions, fill= "green"), color = "black", alpha = 0.5) + 
-    geom_vline(aes(xintercept = mean(Win.Submissions)), color = "dark green", linetype = "dashed") +
-    labs(x = ("Number of Wins"), y = ("Frequency"), title = "Submissions vs All Other Wins") +
-    scale_fill_identity(name = "fill color", guide = "legend", labels = c("Subs", "NonSubs")) +
+    geom_histogram(aes(x = nonSubWins, fill= "purple"),
+                   color = "black", alpha = 1) +
+    geom_vline(aes(xintercept = mean(nonSubWins)),
+               color = "purple", linetype = "dashed") + 
+    geom_histogram(aes(x = Win.Submissions, fill= "green"),
+                   color = "black", alpha = 0.5) + 
+    geom_vline(aes(xintercept = mean(Win.Submissions)),
+               color = "dark green", linetype = "dashed") +
+    labs(x = ("Number of Wins"),
+         y = ("Frequency"),
+         title = "Submissions vs All Other Wins") +
+    scale_fill_identity(name = "fill color",
+                        guide = "legend",
+                        labels = c("Subs", "NonSubs")) +
     theme_classic()
 
 # plot
@@ -144,10 +168,15 @@ subVsNon
 # wins by points vs all other types of wins 
 PtsVsNon <- winLoss_df %>%
   ggplot() + 
-    geom_histogram(aes(x = wins - Win.Points, fill= "purple"), color = "black", alpha = 1) +
-    geom_histogram(aes(x = Win.Points, fill= "blue"), color = "black", alpha = 0.5) + 
-    labs(x = ("Number of Wins"), y = ("Frequency"), title = "Points vs All Other Wins") +
-    scale_fill_identity(name = "fill color", guide = "legend", labels = c("Pts", "NonPts")) +
+    geom_histogram(aes(x = wins - Win.Points, fill= "purple"),
+                   color = "black", alpha = 1) +
+    geom_histogram(aes(x = Win.Points, fill= "blue"),
+                   color = "black", alpha = 0.5) + 
+    labs(x = ("Number of Wins"), y = ("Frequency"),
+         title = "Points vs All Other Wins") +
+    scale_fill_identity(name = "fill color",
+                        guide = "legend",
+                        labels = c("Pts", "NonPts")) +
     theme_classic()
 
 # plot
@@ -157,20 +186,181 @@ PtsVsNon
 ### Violin Plots
 
 ```{r}
-win_violin <- vioplot(winLoss_df$wins,
+winViolin <- vioplot(winLoss_df$wins,
                          col = "purple",
-                         xlab = "Frequency",
+                         names = "Frequency",
                          ylab = "Number of Wins")
 
-win_violin
+winViolin
 
-sub_violin <- vioplot(winLoss_df$Win.Submissions,
+subViolin <- vioplot(winLoss_df$Win.Submissions,
                          col = "green",
-                         xlab = "Frequency",
+                         names = "Frequency",
                          ylab = "Number of Subs")
 
-sub_violin
+subViolin
+
+allTogether <- vioplot(
+  winLoss_df$wins,
+  winLoss_df$Win.Points,
+  winLoss_df$Win.Submissions,
+  col = c("purple", "blue", "green"),
+  names = c("Total Wins", "Points", "Subs"),
+  ylab = "Number of Wins",
+  xlab = "Frequency"
+)
 ```
+
+## Finishing rate (of Wins) & Win Rate (of total matches)
+
+```{r}
+# keep in mind this is submissions / total wins  
+hist(wins_df$subRate * 100, 
+     xlab = "Finishing % (per match)",
+     main = "Frequency of Submission Rate",
+     breaks = 25)
+# violin plot of subrate 
+subRateViolin <- vioplot(wins_df$subRate * 100,
+                         col = "green",
+                         names = "Frequency",
+                         ylab = "SubMission Rate")
+
+# plot the density of the submission rate 
+plot(density(wins_df$subRate * 100), main = "Density of Submission Rate")
+
+# Win Rate 
+hist(wins_df$winRate * 100, 
+     xlab = "Win % (per match)",
+     main = "Frequency of Win Rate",
+     breaks = 25)
+# violin plot of winRate 
+subRateViolin <- vioplot(wins_df$winRate * 100,
+                         col = "purple",
+                         names = "Frequency",
+                         ylab = "Win Rate")
+
+# plot the density of the Win rate 
+plot(density(wins_df$winRate * 100), main = "Density of Win Rate")
+
+# quick look at point win rate 
+
+plot(density(wins_df$pWinRate * 100), main = "Density of Point Win Rate")
+
+# comparing win rate and submission rate on a graph with a quick graph 
+plot(wins_df$winRate * 100, wins_df$subRate * 100,
+     xlab = "Win Rate",
+     ylab = "Sub Rate",
+     main = "Win Rate vs Sub Rate",
+     col = "green",
+     pch = 16,
+     cex = 0.75)
+```
+
+
+## basic modeling to predict Win Rate 
+
+
+### Subs Rate (of wins) vs Win Rate (of total matches)
+
+```{r}
+winVsSub <- wins_df %>%
+  ggplot(aes(y= subRate, x = winRate)) +
+  geom_point(color = "green") +
+  labs(title = "Win Rate vs Sub Rate", y = "Sub Rate", x = "Win Rate") +
+  geom_point() +
+  stat_smooth(method = "lm", se = FALSE , color = "black") +
+  theme(legend.position="none") +
+  theme_classic()
+
+winVsSub
+
+# turn the line from the above graph into a model
+simpleModel <- lm(wins_df$subRate ~ wins_df$winRate, wins_df)
+# show the summary stats of the model
+summary(simpleModel)
+
+# plot the residuals of the model (want to see symmetry)
+residualsPlot <- simpleModel %>%
+  ggplot(aes(x = .fitted, y = .resid)) +
+  geom_point(color = "green") +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "black") +
+  xlab("Fitted values") +
+  ylab("Residuals") +
+  theme_classic()
+# show the plot
+residualsPlot
+
+# graphing the residuals
+qqnorm(simpleModel$residuals,
+  ylab="Standardized Residuals",
+  xlab="Normal Scores")
+qqline(simpleModel$residuals)
+
+# check the distribution of the residuals (want normality)
+hist(simpleModel$residuals, main = "Histogram of Model Residuals (S win)", xlab = "Residuals")
+```
+
+### Point Rate (of wins) vs Win Rate (of total matches)
+
+```{r}
+winVsSub <- wins_df %>%
+  ggplot(aes(y= pWinRate, x = winRate)) +
+  geom_point(color = "blue") +
+  labs(title = "Win Rate vs Point Win Rate", y = "P Win Rate", x = "Win Rate") +
+  geom_point() +
+  stat_smooth(method = "lm", se = FALSE , color = "black") +
+  theme(legend.position="none") +
+  theme_classic()
+
+winVsSub
+
+# turn the line from the above graph into a model
+simpleModel2 <- lm(wins_df$pWinRate ~ wins_df$winRate, wins_df)
+# show the summary stats of the model
+summary(simpleModel2)
+
+# plot the residuals of the model (want to see symmetry)
+residualsPlot2 <- simpleModel2 %>%
+  ggplot(aes(x = .fitted, y = .resid)) +
+  geom_point(color = "blue") +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "black") +
+  xlab("Fitted values") +
+  ylab("Residuals") +
+  theme_classic()
+# show the plot
+residualsPlot2
+
+# graphing the residuals
+qqnorm(simpleModel2$residuals,
+  ylab="Standardized Residuals",
+  xlab="Normal Scores")
+qqline(simpleModel2$residuals)
+
+# check the distribution of the residuals (want normality)
+hist(simpleModel2$residuals, main = "Histogram of Model Residuals (P win)", xlab = "Residuals")
+```
+
+## Conclusion
+
+* the Medians for submissions and total wins are 13, and 32 respectively. This means that to be 
+in the upper $50\%$ of competitors you need to have 32 wins or more and to be in the upper range of 
+submission artists you need $13$ or more submissions. 
+* initially when running the models I had submission rate and point win rate of
+all the matches, but this was almost a tautology. Of course someone more likely 
+to win a match by submission or points than not win will have a high win rate overall.
+So I changed the models to look at sub / point win rate of total wins. This way someone 
+could have an extremely high submission rate but a very low win rate with less variable 
+dependence. 
+* Based on the models $R^2$ values we can see a very slight **positive correlation** between
+the likelihood that a match won by a competitor was won by a submission and the likelihood that
+that same competitor would win a match via any method. Inversely we can see a very slight **negative correlation** between a competitors likelihood to have won a match by points and their overall likelihood to 
+win a match. 
+* because the p value of the model looking at submission rate is $0.0002024$ we can say that 
+winning more matches by submission than by not submission does signify a greater chance to win a match.
+* however, because the p value of the model looking at is above $0.05$ we cannot say that having a 
+high likelihood of wins coming from points makes you more likely to lose a match. 
+* in summary this shows that **more submissions == better Jiu Jitsu Competitor!!!** (but we already knew that)
+
 
 ## Go code for scraping
 
